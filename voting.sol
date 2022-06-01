@@ -4,55 +4,68 @@ pragma solidity ^0.8.10;
 interface IVotingContract{
 
 //only one address should be able to add candidates
-    function addCandidate() external returns(bool);
+    function addCandidate(uint _candidateId) external returns(bool);
 
     
     function voteCandidate(uint candidateId) external returns(bool);
 
     //getWinner returns the name of the winner
-    function getWinner() external returns(bytes32);
+    function getWinner() external returns(uint);
 }
 
-contract Balllot{
-    mapping(address => bool) public candidateVote;
-    uint public candidateTime;
-    address public creator;
+contract Balllot is IVotingContract {
+    mapping(address => bool) private candidateVote;
+    uint private candidateTime;
+    address private creator;
     
 
     struct Candidate{
-        bytes32 candidateId;
+        uint candidateId;
         uint voteCount;
     }
 
-    Candidate[] public candidates;
-    mapping(address => bool) public voter;
+    Candidate[] private candidates;
+    mapping(address => bool) private voter;
+
     
     constructor(uint _candidateTime){
         candidateTime = block.timestamp + _candidateTime;
         creator = msg.sender;
     }
 
-    function addCandidate(bytes32 _candidateId) external returns(bool){
+    function addCandidate(uint _candidateId) external returns(bool){
         if(block.timestamp > candidateTime){
             revert("Time has ended for adding candidate");
         }
 
         require(msg.sender == creator, "You are not authorized");
 
+        
+
         candidates.push(Candidate({
             candidateId: _candidateId,
             voteCount: 0
         }));
+
+        
 
         return true;
 
     }
 
     function voteCandidate(uint candidateId) external returns(bool){
-        require(voter[msg.sender] != false, "You have previously voted");
+        //require(voter[msg.sender] != false, "You have previously voted");
 
-        if(block.timestamp > 2 * candidateTime){
-            revert("Time has ended for adding candidate");
+        if(block.timestamp < candidateTime){
+            revert("voting yet to start");
+        }
+
+        if(block.timestamp > candidateTime * 2){
+            revert("Time has ended for voting candidate");
+        }
+
+        if(voter[msg.sender] == true){
+            revert("You cant vote more than once");
         }
 
         voter[msg.sender] = true;
@@ -62,7 +75,10 @@ contract Balllot{
 
     }
 
-    function getWinner() external view returns(bytes32){
+    function getWinner() external view returns(uint){
+        if(block.timestamp < candidateTime * 2){
+            revert("Not yet time to see the result");
+        }
         uint maxNumber = 0;
         uint tempi = 0;
         for(uint i=0; i< candidates.length; i++){
@@ -71,7 +87,7 @@ contract Balllot{
                 tempi = i;
             }
         }
-        bytes32 finals = candidates[tempi].candidateId;
-        return finals;
+        
+        return candidates[tempi].candidateId;
     }
 }
